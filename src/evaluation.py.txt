@@ -1,0 +1,136 @@
+def detailed_analysis(results, data):
+    """Provide detailed analysis of results"""
+
+    print("\n" + "="*60)
+    print("DETAILED ANALYSIS REPORT")
+    print("="*60)
+
+    vae_clusters = results['vae_clusters']
+    pca_clusters = results['pca_clusters']
+    vae_metrics = results['metrics']['vae']
+    pca_metrics = results['metrics']['pca']
+
+    # Create analysis DataFrame
+    analysis_df = pd.DataFrame({
+        'Song': data['song_names'],
+        'Language': ['English' if l == 0 else 'Bangla' for l in data['language_labels']],
+        'Genre': ['Pop' if g == 0 else 'Rock' if g == 1 else 'Rabindra' if g == 2 else 'Modern' for g in data['true_labels']],
+        'VAE_Cluster': vae_clusters,
+        'PCA_Cluster': pca_clusters
+    })
+
+    # Analyze cluster compositions
+    print("\n📈 CLUSTER COMPOSITION ANALYSIS")
+    print("-" * 50)
+
+    print("\n1. VAE Cluster Composition:")
+    vae_cluster_summary = analysis_df.groupby(['VAE_Cluster', 'Language', 'Genre']).size().unstack(fill_value=0)
+    print(vae_cluster_summary)
+
+    print("\n2. PCA Cluster Composition:")
+    pca_cluster_summary = analysis_df.groupby(['PCA_Cluster', 'Language', 'Genre']).size().unstack(fill_value=0)
+    print(pca_cluster_summary)
+
+    # Calculate separation quality
+    def calculate_separation_quality(df, cluster_col):
+        """Calculate how well clusters separate languages"""
+        separation_scores = []
+        for cluster in sorted(df[cluster_col].unique()):
+            cluster_data = df[df[cluster_col] == cluster]
+            if len(cluster_data) > 0:
+                lang_counts = cluster_data['Language'].value_counts()
+                majority_ratio = lang_counts.max() / len(cluster_data)
+                separation_scores.append(majority_ratio)
+        return np.mean(separation_scores)
+
+    vae_separation = calculate_separation_quality(analysis_df, 'VAE_Cluster')
+    pca_separation = calculate_separation_quality(analysis_df, 'PCA_Cluster')
+
+    print("\n🎯 SEPARATION QUALITY (Higher is better)")
+    print("-" * 40)
+    print(f"VAE Language Separation: {vae_separation:.2%}")
+    print(f"PCA Language Separation: {pca_separation:.2%}")
+    improvement = ((vae_separation - pca_separation) / pca_separation * 100) if pca_separation > 0 else float('inf')
+    print(f"Improvement: {improvement:+.2f}%")
+
+    # Statistical significance
+    print("\n📊 STATISTICAL SIGNIFICANCE")
+    print("-" * 40)
+
+    # Compare silhouette scores
+    silhouette_diff = vae_metrics['silhouette'] - pca_metrics['silhouette']
+    print(f"Silhouette Score Difference: {silhouette_diff:.4f}")
+
+    if vae_metrics['silhouette'] > pca_metrics['silhouette']:
+        print("✅ VAE provides better cluster separation than PCA")
+    else:
+        print("⚠️ PCA performs similarly or better than VAE")
+
+    # Find representative songs from each cluster
+    print("\n🎵 REPRESENTATIVE SONGS FROM EACH CLUSTER")
+    print("-" * 50)
+
+    for cluster in sorted(analysis_df['VAE_Cluster'].unique()):
+        cluster_songs = analysis_df[analysis_df['VAE_Cluster'] == cluster]
+        print(f"\nCluster {cluster}:")
+        print(f"  Size: {len(cluster_songs)} songs")
+        print(f"  Language mix: {dict(cluster_songs['Language'].value_counts())}")
+        print(f"  Genre mix: {dict(cluster_songs['Genre'].value_counts())}")
+        print(f"  Sample songs: {', '.join(cluster_songs['Song'].head(3).tolist())}")
+
+    # Visualize cluster distributions
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # VAE cluster distribution
+    vae_dist = analysis_df.groupby(['VAE_Cluster', 'Language']).size().unstack(fill_value=0)
+    vae_dist.plot(kind='bar', stacked=True, ax=axes[0], color=['skyblue', 'salmon'])
+    axes[0].set_title('VAE Cluster Distribution by Language')
+    axes[0].set_xlabel('Cluster')
+    axes[0].set_ylabel('Number of Songs')
+    axes[0].legend(title='Language')
+    axes[0].grid(True, alpha=0.3, axis='y')
+
+    # PCA cluster distribution
+    pca_dist = analysis_df.groupby(['PCA_Cluster', 'Language']).size().unstack(fill_value=0)
+    pca_dist.plot(kind='bar', stacked=True, ax=axes[1], color=['lightblue', 'lightcoral'])
+    axes[1].set_title('PCA Cluster Distribution by Language')
+    axes[1].set_xlabel('Cluster')
+    axes[1].set_ylabel('Number of Songs')
+    axes[1].legend(title='Language')
+    axes[1].grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Latent space analysis
+    print("\n🔍 LATENT SPACE ANALYSIS")
+    print("-" * 40)
+
+    latent_features = results['latent_features']
+    print(f"Latent feature dimensions: {latent_features.shape}")
+    print(f"Latent feature statistics:")
+    for i in range(min(5, latent_features.shape[1])):  # Show first 5 dimensions
+        print(f"  Dim {i}: mean={latent_features[:, i].mean():.4f}, std={latent_features[:, i].std():.4f}")
+
+    # Correlation between latent dimensions and language
+    latent_df = pd.DataFrame(latent_features, columns=[f'Latent_{i}' for i in range(latent_features.shape[1])])
+    latent_df['Language'] = data['language_labels']
+
+    # Calculate correlations
+    correlations = []
+    for i in range(latent_features.shape[1]):
+        corr = np.corrcoef(latent_features[:, i], data['language_labels'])[0, 1]
+        correlations.append(abs(corr))
+
+    print(f"\nLanguage correlation with latent dimensions:")
+    for i, corr in enumerate(correlations):
+        print(f"  Latent_{i}: {corr:.4f}")
+
+    print(f"\nMost discriminative latent dimension: {np.argmax(correlations)} "
+          f"(correlation: {np.max(correlations):.4f})")
+
+    return analysis_df
+
+# Run detailed analysis
+print("Running detailed analysis...")
+analysis_df = detailed_analysis(results, data)

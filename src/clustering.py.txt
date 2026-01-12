@@ -1,0 +1,367 @@
+def perform_clustering_evaluation(latent_features, pca_features, true_labels, language_labels):
+    """Perform clustering and evaluate results"""
+
+    print("\n" + "="*60)
+    print("CLUSTERING EVALUATION")
+    print("="*60)
+
+    # Determine optimal clusters (but we'll use 4 for our known genres)
+    n_clusters = 4
+
+    # 1. K-Means on VAE features
+    print("\n1️⃣ VAE + K-Means Clustering")
+    kmeans_vae = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
+    vae_clusters = kmeans_vae.fit_predict(latent_features)
+
+    # 2. Baseline: PCA + K-Means
+    print("2️⃣ PCA + K-Means (Baseline)")
+    pca = PCA(n_components=latent_features.shape[1])
+    pca_features = pca.fit_transform(scaler.transform(data['features']))
+    kmeans_pca = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
+    pca_clusters = kmeans_pca.fit_predict(pca_features)
+
+    # Calculate metrics
+    def calculate_metrics(features, clusters, true_labels, language_labels):
+        silhouette = silhouette_score(features, clusters)
+        calinski = calinski_harabasz_score(features, clusters)
+
+        # Calculate purity
+        from sklearn.metrics import confusion_matrix
+        cm = confusion_matrix(language_labels, clusters)
+        purity = np.sum(np.max(cm, axis=0)) / np.sum(cm)
+
+        return silhouette, calinski, purity
+
+    # VAE metrics
+    vae_silhouette, vae_calinski, vae_purity = calculate_metrics(
+        latent_features, vae_clusters, data['true_labels'], data['language_labels']
+    )
+
+    # PCA metrics
+    pca_silhouette, pca_calinski, pca_purity = calculate_metrics(
+        pca_features, pca_clusters, data['true_labels'], data['language_labels']
+    )
+
+    # Display results
+    print("\n📊 RESULTS COMPARISON")
+    print("-" * 40)
+    print(f"{'Metric':<25} {'VAE+K-Means':<15} {'PCA+K-Means':<15}")
+    print("-" * 40)
+    print(f"{'Silhouette Score':<25} {vae_silhouette:<15.4f} {pca_silhouette:<15.4f}")
+    print(f"{'Calinski-Harabasz':<25} {vae_calinski:<15.2f} {pca_calinski:<15.2f}")
+    print(f"{'Language Purity':<25} {vae_purity:<15.4f} {pca_purity:<15.4f}")
+
+    # Create comparison plot
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+    metrics = ['Silhouette', 'Calinski-Harabasz', 'Purity']
+    vae_values = [vae_silhouette, vae_calinski/1000, vae_purity]  # Scale Calinski for visibility
+    pca_values = [pca_silhouette, pca_calinski/1000, pca_purity]
+
+    x = np.arange(len(metrics))
+    width = 0.35
+
+    axes[0].bar(x - width/2, vae_values, width, label='VAE+K-Means', color='#2E86AB', alpha=0.8)
+    axes[0].bar(x + width/2, pca_values, width, label='PCA+K-Means', color='#A23B72', alpha=0.8)
+    axes[0].set_xlabel('Metric')
+    axes[0].set_ylabel('Score')
+    axes[0].set_title('Clustering Performance Comparison')
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels(metrics)
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    # Confusion matrices
+    from sklearn.metrics import ConfusionMatrixDisplay
+
+    axes[1].set_title('VAE Clusters vs Language')
+    cm_vae = confusion_matrix(data['language_labels'], vae_clusters)
+    im1 = axes[1].imshow(cm_vae, cmap='Blues', aspect='auto')
+    axes[1].set_xlabel('Cluster')
+    axes[1].set_ylabel('Language')
+    axes[1].set_xticks(range(n_clusters))
+    axes[1].set_yticks([0, 1])
+    axes[1].set_yticklabels(['English', 'Bangla'])
+    plt.colorbar(im1, ax=axes[1])
+
+    axes[2].set_title('PCA Clusters vs Language')
+    cm_pca = confusion_matrix(data['language_labels'], pca_clusters)
+    im2 = axes[2].imshow(cm_pca, cmap='Reds', aspect='auto')
+    axes[2].set_xlabel('Cluster')
+    axes[2].set_ylabel('Language')
+    axes[2].set_xticks(range(n_clusters))
+    axes[2].set_yticks([0, 1])
+    axes[2].set_yticklabels(['English', 'Bangla'])
+    plt.colorbar(im2, ax=axes[2])
+
+    plt.tight_layout()
+    plt.show()
+
+    return {
+        'vae_clusters': vae_clusters,
+        'pca_clusters': pca_clusters,
+        'latent_features': latent_features,
+        'pca_features': pca_features,
+        'metrics': {
+            'vae': {'silhouette': vae_silhouette, 'calinski': vae_calinski, 'purity': vae_purity},
+            'pca': {'silhouette': pca_silhouette, 'calinski': pca_calinski, 'purity': pca_purity}
+        }
+    }
+
+# Run clustering evaluation
+print("Performing clustering evaluation...")
+results = perform_clustering_evaluation(
+    latent_features,
+    data['features'],
+    data['true_labels'],
+    data['language_labels']
+)
+
+
+
+
+def perform_clustering_evaluation(latent_features, data, scaler):
+    """Perform clustering and evaluate results"""
+
+    print("\n" + "="*60)
+    print("CLUSTERING EVALUATION")
+    print("="*60)
+
+    # Determine optimal clusters (but we'll use 4 for our known genres)
+    n_clusters = 4
+
+    # 1. K-Means on VAE features
+    print("\n1️⃣ VAE + K-Means Clustering")
+    kmeans_vae = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
+    vae_clusters = kmeans_vae.fit_predict(latent_features)
+
+    # 2. Baseline: PCA + K-Means
+    print("2️⃣ PCA + K-Means (Baseline)")
+    # Scale the original features using the same scaler
+    X_scaled = scaler.transform(data['features'])
+    pca = PCA(n_components=latent_features.shape[1])
+    pca_features = pca.fit_transform(X_scaled)
+    kmeans_pca = KMeans(n_clusters=n_clusters, random_state=42, n_init=20)
+    pca_clusters = kmeans_pca.fit_predict(pca_features)
+
+    # Calculate metrics
+    def calculate_metrics(features, clusters, true_labels, language_labels):
+        silhouette = silhouette_score(features, clusters)
+        calinski = calinski_harabasz_score(features, clusters)
+
+        # Calculate purity
+        from sklearn.metrics import confusion_matrix
+        cm = confusion_matrix(language_labels, clusters)
+        purity = np.sum(np.max(cm, axis=0)) / np.sum(cm)
+
+        return silhouette, calinski, purity
+
+    # VAE metrics
+    vae_silhouette, vae_calinski, vae_purity = calculate_metrics(
+        latent_features, vae_clusters, data['true_labels'], data['language_labels']
+    )
+
+    # PCA metrics
+    pca_silhouette, pca_calinski, pca_purity = calculate_metrics(
+        pca_features, pca_clusters, data['true_labels'], data['language_labels']
+    )
+
+    # Display results
+    print("\n📊 RESULTS COMPARISON")
+    print("-" * 40)
+    print(f"{'Metric':<25} {'VAE+K-Means':<15} {'PCA+K-Means':<15}")
+    print("-" * 40)
+    print(f"{'Silhouette Score':<25} {vae_silhouette:<15.4f} {pca_silhouette:<15.4f}")
+    print(f"{'Calinski-Harabasz':<25} {vae_calinski:<15.2f} {pca_calinski:<15.2f}")
+    print(f"{'Language Purity':<25} {vae_purity:<15.4f} {pca_purity:<15.4f}")
+
+    # Create comparison plot
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+    metrics = ['Silhouette', 'Calinski-Harabasz', 'Purity']
+    vae_values = [vae_silhouette, vae_calinski/1000, vae_purity]  # Scale Calinski for visibility
+    pca_values = [pca_silhouette, pca_calinski/1000, pca_purity]
+
+    x = np.arange(len(metrics))
+    width = 0.35
+
+    axes[0].bar(x - width/2, vae_values, width, label='VAE+K-Means', color='#2E86AB', alpha=0.8)
+    axes[0].bar(x + width/2, pca_values, width, label='PCA+K-Means', color='#A23B72', alpha=0.8)
+    axes[0].set_xlabel('Metric')
+    axes[0].set_ylabel('Score')
+    axes[0].set_title('Clustering Performance Comparison')
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels(metrics)
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+
+    # Confusion matrices
+    from sklearn.metrics import confusion_matrix
+
+    axes[1].set_title('VAE Clusters vs Language')
+    cm_vae = confusion_matrix(data['language_labels'], vae_clusters)
+    im1 = axes[1].imshow(cm_vae, cmap='Blues', aspect='auto')
+    axes[1].set_xlabel('Cluster')
+    axes[1].set_ylabel('Language')
+    axes[1].set_xticks(range(n_clusters))
+    axes[1].set_yticks([0, 1])
+    axes[1].set_yticklabels(['English', 'Bangla'])
+    plt.colorbar(im1, ax=axes[1])
+
+    axes[2].set_title('PCA Clusters vs Language')
+    cm_pca = confusion_matrix(data['language_labels'], pca_clusters)
+    im2 = axes[2].imshow(cm_pca, cmap='Reds', aspect='auto')
+    axes[2].set_xlabel('Cluster')
+    axes[2].set_ylabel('Language')
+    axes[2].set_xticks(range(n_clusters))
+    axes[2].set_yticks([0, 1])
+    axes[2].set_yticklabels(['English', 'Bangla'])
+    plt.colorbar(im2, ax=axes[2])
+
+    plt.tight_layout()
+    plt.show()
+
+    return {
+        'vae_clusters': vae_clusters,
+        'pca_clusters': pca_clusters,
+        'latent_features': latent_features,
+        'pca_features': pca_features,
+        'metrics': {
+            'vae': {'silhouette': vae_silhouette, 'calinski': vae_calinski, 'purity': vae_purity},
+            'pca': {'silhouette': pca_silhouette, 'calinski': pca_calinski, 'purity': pca_purity}
+        }
+    }
+
+# Run clustering evaluation
+print("Performing clustering evaluation...")
+results = perform_clustering_evaluation(
+    latent_features,
+    data,
+    scaler
+)
+
+
+
+
+
+def visualize_clusters(results, data):
+    """Create t-SNE and UMAP visualizations"""
+
+    print("\n" + "="*60)
+    print("CLUSTER VISUALIZATION")
+    print("="*60)
+
+    vae_clusters = results['vae_clusters']
+    pca_clusters = results['pca_clusters']
+    latent_features = results['latent_features']
+    pca_features = results['pca_features']
+
+    # Apply t-SNE
+    print("\nApplying t-SNE dimensionality reduction...")
+    tsne = TSNE(n_components=2, random_state=42, perplexity=30, n_iter=1000)
+    vae_tsne = tsne.fit_transform(latent_features)
+    pca_tsne = tsne.fit_transform(pca_features)
+
+    # Apply UMAP
+    print("Applying UMAP dimensionality reduction...")
+    reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
+    vae_umap = reducer.fit_transform(latent_features)
+    pca_umap = reducer.fit_transform(pca_features)
+
+    # Create visualizations
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+
+    # 1. VAE t-SNE (Clusters)
+    scatter1 = axes[0, 0].scatter(vae_tsne[:, 0], vae_tsne[:, 1],
+                                  c=vae_clusters, cmap='tab20', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[0, 0].set_title('VAE + K-Means Clusters (t-SNE)', fontsize=12, fontweight='bold')
+    axes[0, 0].set_xlabel('t-SNE 1')
+    axes[0, 0].set_ylabel('t-SNE 2')
+    axes[0, 0].grid(True, alpha=0.3)
+
+    # 2. PCA t-SNE (Clusters)
+    scatter2 = axes[0, 1].scatter(pca_tsne[:, 0], pca_tsne[:, 1],
+                                  c=pca_clusters, cmap='tab20', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[0, 1].set_title('PCA + K-Means Clusters (t-SNE)', fontsize=12, fontweight='bold')
+    axes[0, 1].set_xlabel('t-SNE 1')
+    axes[0, 1].set_ylabel('t-SNE 2')
+    axes[0, 1].grid(True, alpha=0.3)
+
+    # 3. True Language Labels (t-SNE)
+    scatter3 = axes[0, 2].scatter(vae_tsne[:, 0], vae_tsne[:, 1],
+                                  c=data['language_labels'], cmap='coolwarm', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[0, 2].set_title('True Language Labels (t-SNE)', fontsize=12, fontweight='bold')
+    axes[0, 2].set_xlabel('t-SNE 1')
+    axes[0, 2].set_ylabel('t-SNE 2')
+    axes[0, 2].grid(True, alpha=0.3)
+
+    # 4. VAE UMAP (Clusters)
+    scatter4 = axes[1, 0].scatter(vae_umap[:, 0], vae_umap[:, 1],
+                                  c=vae_clusters, cmap='viridis', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[1, 0].set_title('VAE + K-Means Clusters (UMAP)', fontsize=12, fontweight='bold')
+    axes[1, 0].set_xlabel('UMAP 1')
+    axes[1, 0].set_ylabel('UMAP 2')
+    axes[1, 0].grid(True, alpha=0.3)
+
+    # 5. PCA UMAP (Clusters)
+    scatter5 = axes[1, 1].scatter(pca_umap[:, 0], pca_umap[:, 1],
+                                  c=pca_clusters, cmap='viridis', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[1, 1].set_title('PCA + K-Means Clusters (UMAP)', fontsize=12, fontweight='bold')
+    axes[1, 1].set_xlabel('UMAP 1')
+    axes[1, 1].set_ylabel('UMAP 2')
+    axes[1, 1].grid(True, alpha=0.3)
+
+    # 6. True Genre Labels (UMAP)
+    scatter6 = axes[1, 2].scatter(vae_umap[:, 0], vae_umap[:, 1],
+                                  c=data['true_labels'], cmap='Set2', s=50, alpha=0.7, edgecolors='w', linewidth=0.5)
+    axes[1, 2].set_title('True Genre Labels (UMAP)', fontsize=12, fontweight='bold')
+    axes[1, 2].set_xlabel('UMAP 1')
+    axes[1, 2].set_ylabel('UMAP 2')
+    axes[1, 2].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Interactive plot with plotly
+    print("\nCreating interactive visualization...")
+
+    # Create DataFrame for interactive plot
+    plot_df = pd.DataFrame({
+        'tsne_1': vae_tsne[:, 0],
+        'tsne_2': vae_tsne[:, 1],
+        'umap_1': vae_umap[:, 0],
+        'umap_2': vae_umap[:, 1],
+        'vae_cluster': vae_clusters,
+        'pca_cluster': pca_clusters,
+        'language': data['language_labels'],
+        'genre': data['true_labels'],
+        'song_name': data['song_names'],
+        'language_name': ['English' if l == 0 else 'Bangla' for l in data['language_labels']],
+        'genre_name': ['Eng-Pop' if g == 0 else 'Eng-Rock' if g == 1 else 'Ban-Rabindra' if g == 2 else 'Ban-Modern' for g in data['true_labels']]
+    })
+
+    # Interactive t-SNE plot
+    fig1 = px.scatter(plot_df, x='tsne_1', y='tsne_2',
+                      color='language_name',
+                      hover_data=['song_name', 'genre_name', 'vae_cluster'],
+                      title='Interactive t-SNE: Language Separation',
+                      color_discrete_map={'English': '#1f77b4', 'Bangla': '#ff7f0e'})
+    fig1.update_traces(marker=dict(size=8, opacity=0.7))
+    fig1.show()
+
+    # Interactive UMAP plot
+    fig2 = px.scatter(plot_df, x='umap_1', y='umap_2',
+                      color='genre_name',
+                      hover_data=['song_name', 'language_name', 'vae_cluster'],
+                      title='Interactive UMAP: Genre Separation',
+                      color_discrete_sequence=px.colors.qualitative.Set2)
+    fig2.update_traces(marker=dict(size=8, opacity=0.7))
+    fig2.show()
+
+    print("✅ Visualizations completed!")
+
+    return plot_df, vae_tsne, vae_umap
+
+# Run visualizations
+print("Generating cluster visualizations...")
+plot_data, vae_tsne, vae_umap = visualize_clusters(results, data)
